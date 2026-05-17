@@ -3,6 +3,7 @@
 import { RotateCcw, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatNumber } from "@/lib/hologramMath";
+import type { Lang } from "@/lib/i18n";
 
 type ComponentType = "laser" | "splitter" | "mirror" | "lens" | "film" | "object";
 
@@ -94,43 +95,145 @@ const errorPreset: OpticalComponent[] = [
   { id: "film", type: "film", x: 780, y: 260, angle: 90 }
 ];
 
-const labels = {
-  title: "Оптический стол",
-  subtitle: "Перетаскивайте компоненты. Вращайте колесом мыши или круглой ручкой над элементом.",
-  standard: "Стандартная схема",
-  empty: "Пустой стол",
-  error: "Ошибка: нет интерференции",
-  training: "Обучающий режим",
-  theta: "Угол θ",
-  period: "Период d",
-  resolution: "Разрешение N",
-  interferenceOk: "✓ Интерференция! Голограмма записывается",
-  noInterference: "✗ Нет интерференции — нужны оба луча",
-  tips: {
-    splitter: "Поставьте светоделитель на пути лазера.",
-    reference: "Направьте опорный луч зеркалом и линзой на плёнку.",
-    object: "Направьте объектный луч на объект.",
-    film: "Добейтесь, чтобы объектная волна и опорный луч пришли на плёнку.",
-    done: "Схема готова: оба луча попадают на плёнку."
-  },
-  components: {
-    laser: "Лазер",
-    splitter: "Светоделитель",
-    mirror: "Зеркало",
-    lens: "Расш. линза",
-    film: "Плёнка",
-    object: "Объект"
-  },
-  steps: [
-    "Поставьте лазер в левый угол стола",
-    "Разместите светоделитель на пути луча",
-    "Направьте опорный луч зеркалом на плёнку",
-    "Направьте объектный луч на объект",
-    "Добейтесь интерференции на плёнке"
-  ]
+type OpticalTableLabels = {
+  title: string;
+  subtitle: string;
+  standard: string;
+  empty: string;
+  error: string;
+  training: string;
+  theta: string;
+  period: string;
+  resolution: string;
+  interferenceOk: string;
+  noInterference: string;
+  tipTitle: string;
+  selectedAngle: string;
+  nextStep: string;
+  tips: Record<"splitter" | "reference" | "object" | "film" | "done", string>;
+  components: Record<ComponentType, string>;
+  steps: string[];
 };
 
-export default function OpticalTableBuilder() {
+const opticalTableCopy: Record<Lang, OpticalTableLabels> = {
+  ru: {
+    title: "Оптический стол",
+    subtitle: "Перетаскивайте компоненты. Вращайте колесом мыши или круглой ручкой над элементом.",
+    standard: "Стандартная схема",
+    empty: "Пустой стол",
+    error: "Ошибка: нет интерференции",
+    training: "Обучающий режим",
+    theta: "Угол θ",
+    period: "Период d",
+    resolution: "Разрешение N",
+    interferenceOk: "✓ Интерференция! Голограмма записывается",
+    noInterference: "✗ Нет интерференции — нужны оба луча",
+    tipTitle: "Подсказка",
+    selectedAngle: "угол",
+    nextStep: "Следующий шаг",
+    tips: {
+      splitter: "Поставьте светоделитель на пути лазера.",
+      reference: "Направьте опорный луч зеркалом и линзой на плёнку.",
+      object: "Направьте объектный луч на объект.",
+      film: "Добейтесь, чтобы объектная волна и опорный луч пришли на плёнку.",
+      done: "Схема готова: оба луча попадают на плёнку."
+    },
+    components: {
+      laser: "Лазер",
+      splitter: "Светоделитель",
+      mirror: "Зеркало",
+      lens: "Расш. линза",
+      film: "Плёнка",
+      object: "Объект"
+    },
+    steps: [
+      "Поставьте лазер в левый угол стола",
+      "Разместите светоделитель на пути луча",
+      "Направьте опорный луч зеркалом на плёнку",
+      "Направьте объектный луч на объект",
+      "Добейтесь интерференции на плёнке"
+    ]
+  },
+  en: {
+    title: "Optical Table",
+    subtitle: "Drag the components. Rotate them with the mouse wheel or the circular handle above each element.",
+    standard: "Standard setup",
+    empty: "Empty table",
+    error: "Error: no interference",
+    training: "Training mode",
+    theta: "Angle θ",
+    period: "Period d",
+    resolution: "Resolution N",
+    interferenceOk: "✓ Interference! The hologram is being recorded",
+    noInterference: "✗ No interference - both beams are required",
+    tipTitle: "Hint",
+    selectedAngle: "angle",
+    nextStep: "Next step",
+    tips: {
+      splitter: "Place the beam splitter in the laser path.",
+      reference: "Use the mirror and lens to direct the reference beam onto the film.",
+      object: "Direct the object beam onto the object.",
+      film: "Make the object wave and the reference beam arrive at the film.",
+      done: "The setup is ready: both beams reach the film."
+    },
+    components: {
+      laser: "Laser",
+      splitter: "Beam splitter",
+      mirror: "Mirror",
+      lens: "Exp. lens",
+      film: "Film",
+      object: "Object"
+    },
+    steps: [
+      "Place the laser in the left corner of the table",
+      "Place the beam splitter in the beam path",
+      "Direct the reference beam to the film with a mirror",
+      "Direct the object beam to the object",
+      "Achieve interference on the film"
+    ]
+  },
+  uz: {
+    title: "Optik stol",
+    subtitle: "Komponentlarni sudrab joylashtiring. Elementni sichqoncha g'ildiragi yoki ustidagi aylana tutqich bilan burang.",
+    standard: "Standart sxema",
+    empty: "Bo'sh stol",
+    error: "Xato: interferensiya yo'q",
+    training: "O'quv rejimi",
+    theta: "Burchak θ",
+    period: "Davr d",
+    resolution: "Ajrata olish N",
+    interferenceOk: "✓ Interferensiya! Gologramma yozilmoqda",
+    noInterference: "✗ Interferensiya yo'q - ikkala nur kerak",
+    tipTitle: "Maslahat",
+    selectedAngle: "burchak",
+    nextStep: "Keyingi qadam",
+    tips: {
+      splitter: "Nur ajratgichni lazer yo'liga qo'ying.",
+      reference: "Tayanch nurni ko'zgu va linza orqali plyonkaga yo'naltiring.",
+      object: "Obyekt nurini obyektga yo'naltiring.",
+      film: "Obyekt to'lqini va tayanch nur plyonkaga yetib borishini ta'minlang.",
+      done: "Sxema tayyor: ikkala nur ham plyonkaga tushmoqda."
+    },
+    components: {
+      laser: "Lazer",
+      splitter: "Nur ajratgich",
+      mirror: "Ko'zgu",
+      lens: "Keng. linza",
+      film: "Plyonka",
+      object: "Obyekt"
+    },
+    steps: [
+      "Lazerni stolning chap burchagiga qo'ying",
+      "Nur ajratgichni nur yo'liga joylashtiring",
+      "Tayanch nurni ko'zgu bilan plyonkaga yo'naltiring",
+      "Obyekt nurini obyektga yo'naltiring",
+      "Plyonkada interferensiyaga erishing"
+    ]
+  }
+};
+
+export default function OpticalTableBuilder({ lang }: { lang: Lang }) {
+  const labels = opticalTableCopy[lang];
   const [components, setComponents] = useState<OpticalComponent[]>(standardPreset);
   const [selectedId, setSelectedId] = useState<string>("splitter");
   const [interaction, setInteraction] = useState<Interaction>(null);
@@ -141,7 +244,7 @@ export default function OpticalTableBuilder() {
   const metrics = useMemo(() => calculateTraceMetrics(trace), [trace]);
   const selected = components.find((component) => component.id === selectedId) ?? null;
   const trainingChecks = useMemo(() => getTrainingChecks(components, trace), [components, trace]);
-  const activeTip = getActiveTip(trace);
+  const activeTip = getActiveTip(trace, labels);
 
   const setPreset = (preset: OpticalComponent[]) => {
     setComponents(preset.map((component) => ({ ...component })));
@@ -265,6 +368,7 @@ export default function OpticalTableBuilder() {
                 key={component.id}
                 component={component}
                 selected={component.id === selectedId}
+                labels={labels}
                 onPointerDown={handleComponentPointerDown}
                 onRotatePointerDown={handleRotatePointerDown}
                 onWheel={handleWheel}
@@ -287,7 +391,7 @@ export default function OpticalTableBuilder() {
           <div className="rounded border border-lab-line bg-[#091315] p-4">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
               <Target size={16} aria-hidden />
-              Подсказка
+              {labels.tipTitle}
             </div>
             <p className="text-sm leading-6 text-slate-300">{activeTip}</p>
           </div>
@@ -296,10 +400,10 @@ export default function OpticalTableBuilder() {
             <div className="rounded border border-lab-line bg-[#091315] p-4">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
                 <RotateCcw size={16} aria-hidden />
-                {componentLabel(selected.type)}
+                {componentLabel(selected.type, labels)}
               </div>
               <p className="text-sm text-slate-400">x {formatNumber(selected.x, 0)} / y {formatNumber(selected.y, 0)}</p>
-              <p className="mt-1 text-sm text-slate-400">angle {formatNumber(normalizeDegrees(selected.angle), 1)}°</p>
+              <p className="mt-1 text-sm text-slate-400">{labels.selectedAngle} {formatNumber(normalizeDegrees(selected.angle), 1)}°</p>
             </div>
           )}
 
@@ -315,7 +419,7 @@ export default function OpticalTableBuilder() {
                 ))}
               </ol>
               <button type="button" onClick={nextTrainingStep} className="mt-3 rounded border border-lab-cyan px-3 py-2 text-sm text-lab-cyan">
-                Следующий шаг
+                {labels.nextStep}
               </button>
             </div>
           )}
@@ -342,17 +446,19 @@ function TableGrid() {
 function ComponentGlyph({
   component,
   selected,
+  labels,
   onPointerDown,
   onRotatePointerDown,
   onWheel
 }: {
   component: OpticalComponent;
   selected: boolean;
+  labels: OpticalTableLabels;
   onPointerDown: (event: React.PointerEvent<SVGGElement>, component: OpticalComponent) => void;
   onRotatePointerDown: (event: React.PointerEvent<SVGCircleElement>, id: string) => void;
   onWheel: (event: React.WheelEvent<SVGGElement>, component: OpticalComponent) => void;
 }) {
-  const label = componentLabel(component.type);
+  const label = componentLabel(component.type, labels);
   const color = componentColor(component.type);
 
   return (
@@ -652,7 +758,7 @@ function getTrainingChecks(components: OpticalComponent[], trace: TraceResult) {
   ];
 }
 
-function getActiveTip(trace: TraceResult) {
+function getActiveTip(trace: TraceResult, labels: OpticalTableLabels) {
   if (!trace.splitterHit) return labels.tips.splitter;
   if (!trace.filmHits.some((hit) => hit.role === "reference")) return labels.tips.reference;
   if (!trace.objectHit) return labels.tips.object;
@@ -673,7 +779,7 @@ function getComponent(components: OpticalComponent[], idOrType: string) {
   return components.find((component) => component.id === idOrType || component.type === idOrType);
 }
 
-function componentLabel(type: ComponentType) {
+function componentLabel(type: ComponentType, labels: OpticalTableLabels) {
   return labels.components[type];
 }
 

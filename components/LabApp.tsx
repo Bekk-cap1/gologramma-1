@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { buildCalculationText, calculateHologram, defaultInputs, formatNumber, type HologramInputs } from "@/lib/hologramMath";
+import { buildCalculationText, calculateHologram, defaultInputs, formatNumber, type HologramInputs, type HologramResults } from "@/lib/hologramMath";
 import { copy, languages, type ComponentLabels, type Lang } from "@/lib/i18n";
 import { downloadDeviceJson, downloadFringePattern, printCalculationReport } from "@/lib/exporters";
 import OpticalTableBuilder from "./OpticalTableBuilder";
@@ -295,6 +295,8 @@ export default function LabApp() {
               <h3 className="mb-4 text-lg font-semibold text-white">{t.calculator.steps}</h3>
               <FormulaSteps inputs={inputs} impossibleLabel={t.calculator.impossible} maxVibrationLabel={t.calculator.maxVibration} />
             </div>
+
+            <FormulaGuide lang={lang} inputs={inputs} result={result} />
           </div>
         </div>
       </Section>
@@ -381,11 +383,11 @@ export default function LabApp() {
       </Section>
 
       <Section id="optical-table" title={t.nav.opticalTable} icon={<Table2 size={22} aria-hidden />}>
-        <OpticalTableBuilder />
+        <OpticalTableBuilder lang={lang} />
       </Section>
 
       <Section id="restore-simulator" title={t.nav.restoreLab} icon={<Eye size={22} aria-hidden />}>
-        <ReconstructionSimulator recordedAngleDeg={inputs.angleDeg} recordedWavelengthNm={inputs.wavelengthNm} />
+        <ReconstructionSimulator lang={lang} recordedAngleDeg={inputs.angleDeg} recordedWavelengthNm={inputs.wavelengthNm} />
       </Section>
 
       <Section id="device" title={t.device.title} icon={<Download size={22} aria-hidden />}>
@@ -489,6 +491,408 @@ function ResultLine({ label, value, sub }: { label: string; value: string; sub: 
       </div>
       <p className="mt-1 text-right text-xs text-slate-500">{sub}</p>
     </div>
+  );
+}
+
+type FormulaGuideText = {
+  title: string;
+  intro: string;
+  workflowTitle: string;
+  workflow: string[];
+  labels: {
+    purpose: string;
+    when: string;
+    where: string;
+    units: string;
+    decision: string;
+    current: string;
+    watch: string;
+  };
+  items: Array<{
+    formula: string;
+    title: string;
+    purpose: string;
+    when: string;
+    where: string;
+    units: string;
+    decision: string;
+    watch: string;
+  }>;
+};
+
+const formulaGuideCopy: Record<Lang, FormulaGuideText> = {
+  ru: {
+    title: "Как пользоваться формулами",
+    intro:
+      "Формулы идут не отдельным списком, а как маршрут эксперимента: сначала проектируем геометрию записи, затем выбираем плёнку и лазер, проверяем стабильность, после этого прогнозируем восстановление изображения.",
+    workflowTitle: "Порядок применения",
+    workflow: [
+      "1. Выберите λ и угол θ, затем найдите период полос d.",
+      "2. По d рассчитайте минимальное разрешение N и сравните его с плёнкой.",
+      "3. По Δλ найдите длину когерентности Lc и проверьте глубину объекта/разность хода.",
+      "4. По λ/4 задайте допустимую вибрацию стола.",
+      "5. Для просмотра используйте α и E_out, чтобы понять направление восстановленной волны."
+    ],
+    labels: {
+      purpose: "Что решает",
+      when: "Когда использовать",
+      where: "Где в установке",
+      units: "Единицы",
+      decision: "Какое решение принять",
+      current: "Сейчас по вашим данным",
+      watch: "Не перепутать"
+    },
+    items: [
+      {
+        formula: "d = λ / (2 sin(θ/2))",
+        title: "Период интерференционных полос",
+        purpose: "Показывает расстояние между соседними светлыми/тёмными полосами, которые запишутся в эмульсии.",
+        when: "Сразу после выбора лазера и угла между опорным и объектным лучом.",
+        where: "На поверхности голографической плёнки, в зоне встречи двух лучей.",
+        units: "Если λ задана в nm, d получится в nm. Для сравнения с плёнкой переведите d в mm.",
+        decision: "Меньший d означает более плотные полосы и более жёсткое требование к плёнке.",
+        watch: "θ берётся как угол между лучами, а в формуле стоит половина угла θ/2."
+      },
+      {
+        formula: "N = 10^6 / d[nm]",
+        title: "Минимальное разрешение плёнки",
+        purpose: "Переводит период полос в пространственную частоту, которую должна различить плёнка.",
+        when: "Перед выбором фотоматериала и перед выводом о пригодности плёнки.",
+        where: "В паспорте/характеристиках голографической плёнки: lines/mm.",
+        units: "N считается в lines/mm. Эквивалентно: N = 1 / d[mm].",
+        decision: "Плёнка подходит, если её разрешение больше или равно рассчитанному N.",
+        watch: "Самая частая ошибка - делить 1 на d в nm без перевода в mm."
+      },
+      {
+        formula: "Lc = λ² / Δλ",
+        title: "Длина когерентности лазера",
+        purpose: "Оценивает, на какой разности хода лучи ещё сохраняют устойчивую интерференцию.",
+        when: "До записи, когда выбираете лазер и глубину сцены/расстояние до объекта.",
+        where: "Во всей оптической схеме: сравнивается с разностью оптических путей reference и object beam.",
+        units: "λ и Δλ должны быть в одинаковых единицах; результат будет в тех же единицах.",
+        decision: "Разность хода должна быть меньше Lc, иначе полосы потеряют контраст.",
+        watch: "Малая Δλ даёт большую Lc; широкий спектр резко ухудшает запись."
+      },
+      {
+        formula: "sin(α) = mλ / d",
+        title: "Угол дифракции и наблюдения",
+        purpose: "Показывает, под каким углом появится дифрагированный порядок при восстановлении.",
+        when: "После расчёта d, когда нужно объяснить, куда выходит восстановленная волна.",
+        where: "На этапе просмотра: за плёнкой, куда проходит diffracted/reconstructed beam.",
+        units: "λ и d берутся в одинаковых единицах; α получается в градусах после arcsin.",
+        decision: "Если |mλ/d| ≤ 1, порядок существует; если больше 1, такой угол физически невозможен.",
+        watch: "m = 0 даёт прямой луч, m = 1 обычно используют для первого восстановленного изображения."
+      },
+      {
+        formula: "vibration < λ / 4",
+        title: "Условие механической стабильности",
+        purpose: "Задаёт максимальное смещение установки, при котором интерференционные полосы не смазываются.",
+        when: "Перед экспозицией, при настройке оптического стола и виброизоляции.",
+        where: "Лазер, зеркала, объект и плёнка должны оставаться стабильны относительно друг друга.",
+        units: "λ/4 обычно удобно показывать в nm и µm.",
+        decision: "Если вибрации больше λ/4, запись будет слабой или испорченной.",
+        watch: "Даже маленький толчок стола меняет фазу, потому что голограмма записывает волну, а не картинку."
+      },
+      {
+        formula: "I(x,y) = |Er + Eo|²",
+        title: "Интенсивность интерференционной картины",
+        purpose: "Объясняет, почему на плёнке появляется структура полос: складываются опорная и объектная волны.",
+        when: "В теоретическом объяснении процесса записи.",
+        where: "Только в области плёнки, где одновременно присутствуют reference beam и object beam.",
+        units: "Это распределение интенсивности по координатам x,y на плёнке.",
+        decision: "Для записи нужны оба луча; один луч не создаёт голограмму.",
+        watch: "Именно фазовый член 2ArAo cos(φ) несёт информацию об объектной волне."
+      },
+      {
+        formula: "E_out = T(x,y) · Er",
+        title: "Восстановление объектной волны",
+        purpose: "Показывает, как готовая плёнка превращает опорный луч в восстановленную волну.",
+        when: "На этапе просмотра готовой transmission-голограммы.",
+        where: "Свет проходит сквозь плёнку; за плёнкой появляется reconstructed wave.",
+        units: "T(x,y) - функция пропускания плёнки, Er - опорная волна при восстановлении.",
+        decision: "Для чёткого 3D нужно повторить длину волны и угол опорного луча, близкие к записи.",
+        watch: "Проектор или белый свет не заменяют когерентный лазер: фазы и длины волн не совпадают."
+      }
+    ]
+  },
+  en: {
+    title: "How to Use the Formulas",
+    intro:
+      "The formulas are an experiment workflow: design the recording geometry, choose the film and laser, check stability, then predict reconstruction.",
+    workflowTitle: "Use order",
+    workflow: [
+      "1. Choose λ and θ, then calculate fringe period d.",
+      "2. Convert d into required resolution N and compare it with the film.",
+      "3. Use Δλ to calculate coherence length Lc and check path difference/object depth.",
+      "4. Use λ/4 to set the vibration limit.",
+      "5. Use α and E_out to explain where the reconstructed wave appears."
+    ],
+    labels: {
+      purpose: "What it solves",
+      when: "When to use",
+      where: "Where in setup",
+      units: "Units",
+      decision: "Decision",
+      current: "With current inputs",
+      watch: "Watch out"
+    },
+    items: [
+      {
+        formula: "d = λ / (2 sin(θ/2))",
+        title: "Interference Fringe Period",
+        purpose: "Finds the spacing between neighboring fringes recorded in the emulsion.",
+        when: "Right after selecting the laser wavelength and the angle between beams.",
+        where: "On the holographic film, where reference and object beams overlap.",
+        units: "If λ is in nm, d is in nm. Convert d to mm before comparing with film specs.",
+        decision: "Smaller d means denser fringes and a higher film resolution requirement.",
+        watch: "θ is the angle between the beams, but the formula uses θ/2."
+      },
+      {
+        formula: "N = 10^6 / d[nm]",
+        title: "Required Film Resolution",
+        purpose: "Converts fringe spacing into the spatial frequency the film must resolve.",
+        when: "Before choosing the photographic material and judging film suitability.",
+        where: "In film datasheets, usually listed as lines/mm.",
+        units: "N is in lines/mm. Equivalent form: N = 1 / d[mm].",
+        decision: "The film is suitable when its resolution is at least the calculated N.",
+        watch: "Do not divide 1 by d in nm without converting to mm."
+      },
+      {
+        formula: "Lc = λ² / Δλ",
+        title: "Laser Coherence Length",
+        purpose: "Estimates the path difference over which beams still interfere with good contrast.",
+        when: "Before recording, while choosing the laser and scene depth.",
+        where: "Across the optical setup: compare it with the optical path difference.",
+        units: "λ and Δλ must use the same unit; Lc comes out in that unit.",
+        decision: "Keep the path difference below Lc, or fringes lose contrast.",
+        watch: "A narrow linewidth gives long coherence length; broad spectrum destroys the recording."
+      },
+      {
+        formula: "sin(α) = mλ / d",
+        title: "Diffraction and Viewing Angle",
+        purpose: "Predicts the angle of the diffracted order during reconstruction.",
+        when: "After calculating d, when explaining where the reconstructed wave exits.",
+        where: "During viewing, behind the film in the transmitted diffracted beam.",
+        units: "λ and d use the same unit; α is obtained in degrees after arcsin.",
+        decision: "If |mλ/d| ≤ 1 the order exists; if it is greater than 1, it is impossible.",
+        watch: "m = 0 is the straight beam; m = 1 is usually the first reconstructed image."
+      },
+      {
+        formula: "vibration < λ / 4",
+        title: "Mechanical Stability Condition",
+        purpose: "Sets the maximum motion before interference fringes smear.",
+        when: "Before exposure, while preparing the optical table and isolation.",
+        where: "Laser, mirrors, object, and film must remain stable relative to each other.",
+        units: "λ/4 is best shown in nm and µm.",
+        decision: "If vibration exceeds λ/4, the recording becomes weak or ruined.",
+        watch: "A hologram records a wave phase, not just an image, so tiny motion matters."
+      },
+      {
+        formula: "I(x,y) = |Er + Eo|²",
+        title: "Interference Intensity",
+        purpose: "Explains why fringes appear: reference and object waves are added.",
+        when: "In the theory of the recording process.",
+        where: "Only on film regions reached by both beams.",
+        units: "It is an intensity distribution over x,y on the film.",
+        decision: "Both beams are required; one beam alone cannot record a hologram.",
+        watch: "The phase term 2ArAo cos(φ) carries object-wave information."
+      },
+      {
+        formula: "E_out = T(x,y) · Er",
+        title: "Object Wave Reconstruction",
+        purpose: "Shows how the developed film converts the reference beam into the reconstructed wave.",
+        when: "When viewing the finished transmission hologram.",
+        where: "Light passes through the film; the reconstructed wave appears behind it.",
+        units: "T(x,y) is film transmittance; Er is the reconstruction reference wave.",
+        decision: "Use a laser wavelength and reference angle close to the recording conditions.",
+        watch: "A projector or white light does not replace a coherent laser."
+      }
+    ]
+  },
+  uz: {
+    title: "Formulalardan qanday foydalanish kerak",
+    intro:
+      "Formulalar tajriba tartibi bo'yicha ishlatiladi: avval yozish geometriyasi, keyin plyonka va lazer tanlovi, barqarorlik tekshiruvi, so'ng tiklash yo'nalishi.",
+    workflowTitle: "Qo'llash tartibi",
+    workflow: [
+      "1. λ va θ ni tanlang, so'ng polosalar davri d ni hisoblang.",
+      "2. d orqali kerakli N ni topib, plyonka bilan solishtiring.",
+      "3. Δλ orqali Lc ni topib, optik yo'l farqi va obyekt chuqurligini tekshiring.",
+      "4. λ/4 orqali stol tebranishi chegarasini belgilang.",
+      "5. α va E_out orqali tiklangan to'lqin qayerga chiqishini tushuntiring."
+    ],
+    labels: {
+      purpose: "Nimani hal qiladi",
+      when: "Qachon ishlatiladi",
+      where: "Qayerda ishlatiladi",
+      units: "Birliklar",
+      decision: "Qanday xulosa",
+      current: "Hozirgi qiymatlar bilan",
+      watch: "Ehtiyot bo'ling"
+    },
+    items: [
+      {
+        formula: "d = λ / (2 sin(θ/2))",
+        title: "Interferensiya polosalari davri",
+        purpose: "Emulsiyada yoziladigan qo'shni polosalar orasidagi masofani ko'rsatadi.",
+        when: "Lazer to'lqin uzunligi va ikki nur orasidagi burchak tanlangandan keyin.",
+        where: "Tayanch va obyekt nurlari uchrashadigan golografik plyonka yuzasida.",
+        units: "λ nm bo'lsa, d ham nm chiqadi. Plyonka bilan solishtirish uchun d ni mm ga o'tkazing.",
+        decision: "d kichik bo'lsa, polosalar zichroq bo'ladi va plyonkadan yuqori aniqlik talab qilinadi.",
+        watch: "θ - ikki nur orasidagi burchak, lekin formulada θ/2 ishlatiladi."
+      },
+      {
+        formula: "N = 10^6 / d[nm]",
+        title: "Plyonka uchun kerakli aniqlik",
+        purpose: "Polosa davrini plyonka ajrata olishi kerak bo'lgan fazoviy chastotaga aylantiradi.",
+        when: "Fotomaterial tanlash va plyonka mosligini tekshirishdan oldin.",
+        where: "Plyonka pasportida odatda lines/mm ko'rinishida beriladi.",
+        units: "N lines/mm bo'ladi. Ekvivalent: N = 1 / d[mm].",
+        decision: "Plyonka aniqligi hisoblangan N dan katta yoki teng bo'lsa, mos keladi.",
+        watch: "d nm bo'lsa, uni mm ga o'tkazmasdan 1/d qilish xato."
+      },
+      {
+        formula: "Lc = λ² / Δλ",
+        title: "Lazer kogerentlik uzunligi",
+        purpose: "Nurlar qaysi optik yo'l farqigacha yaxshi interferensiya berishini baholaydi.",
+        when: "Yozishdan oldin, lazer va obyekt chuqurligini tanlashda.",
+        where: "Reference va object beam optik yo'llari farqi bilan solishtiriladi.",
+        units: "λ va Δλ bir xil birlikda bo'lishi kerak; natija ham shu birlikda chiqadi.",
+        decision: "Optik yo'l farqi Lc dan kichik bo'lishi kerak.",
+        watch: "Δλ kichik bo'lsa Lc katta bo'ladi; keng spektr yozuvni yomonlashtiradi."
+      },
+      {
+        formula: "sin(α) = mλ / d",
+        title: "Difraksiya va kuzatish burchagi",
+        purpose: "Tiklashda difraksion tartib qaysi burchakda chiqishini ko'rsatadi.",
+        when: "d hisoblangandan keyin, tiklangan to'lqin yo'nalishini tushuntirishda.",
+        where: "Ko'rish bosqichida, plyonkadan o'tgan nur tomonda.",
+        units: "λ va d bir xil birlikda olinadi; α arcsin dan keyin gradusda chiqadi.",
+        decision: "Agar |mλ/d| ≤ 1 bo'lsa tartib mavjud; katta bo'lsa fizik jihatdan mumkin emas.",
+        watch: "m = 0 to'g'ri o'tgan nur; m = 1 odatda birinchi tiklangan tasvir."
+      },
+      {
+        formula: "vibration < λ / 4",
+        title: "Mexanik barqarorlik sharti",
+        purpose: "Interferensiya polosalari surkalmasligi uchun maksimal siljishni belgilaydi.",
+        when: "Ekspozitsiyadan oldin, optik stol va izolyatsiyani sozlashda.",
+        where: "Lazer, ko'zgular, obyekt va plyonka bir-biriga nisbatan barqaror turishi kerak.",
+        units: "λ/4 ni nm va µm da ko'rsatish qulay.",
+        decision: "Tebranish λ/4 dan katta bo'lsa, yozuv sifati yomonlashadi.",
+        watch: "Gologramma rasmni emas, to'lqin fazasini yozadi; juda kichik siljish ham muhim."
+      },
+      {
+        formula: "I(x,y) = |Er + Eo|²",
+        title: "Interferensiya intensivligi",
+        purpose: "Plyonkada polosalar nima uchun paydo bo'lishini tushuntiradi.",
+        when: "Yozish jarayoni nazariyasini tushuntirishda.",
+        where: "Faqat ikkala nur tushgan plyonka sohasida.",
+        units: "Bu x,y bo'yicha intensivlik taqsimoti.",
+        decision: "Gologramma yozilishi uchun ikkala nur ham kerak.",
+        watch: "2ArAo cos(φ) fazaviy hadi obyekt to'lqini haqidagi ma'lumotni saqlaydi."
+      },
+      {
+        formula: "E_out = T(x,y) · Er",
+        title: "Obyekt to'lqinini tiklash",
+        purpose: "Tayyor plyonka tayanch nurni qanday qilib tiklangan to'lqinga aylantirishini ko'rsatadi.",
+        when: "Tayyor transmission-gologrammani ko'rishda.",
+        where: "Yorug'lik plyonkadan o'tadi va uning orqasida reconstructed wave hosil bo'ladi.",
+        units: "T(x,y) - plyonka o'tkazuvchanligi, Er - tiklashdagi tayanch to'lqin.",
+        decision: "Aniq 3D uchun yozishdagi lazer λ va burchakka yaqin sharoit kerak.",
+        watch: "Proyektor yoki oq yorug'lik kogerent lazerni almashtira olmaydi."
+      }
+    ]
+  }
+};
+
+function FormulaGuide({ lang, inputs, result }: { lang: Lang; inputs: HologramInputs; result: HologramResults }) {
+  const guide = formulaGuideCopy[lang];
+  const currentValues = buildFormulaGuideCurrentValues(lang, inputs, result);
+
+  return (
+    <div className="rounded border border-lab-line bg-lab-panel/92 p-4 lg:col-span-2">
+      <div className="grid gap-4 xl:grid-cols-[0.78fr_1.22fr]">
+        <div>
+          <h3 className="text-lg font-semibold text-white">{guide.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-300">{guide.intro}</p>
+          <div className="mt-4 rounded border border-lab-line bg-[#091315] p-4">
+            <h4 className="text-sm font-semibold text-lab-cyan">{guide.workflowTitle}</h4>
+            <ol className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
+              {guide.workflow.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {guide.items.map((item, index) => (
+            <article key={item.formula} className="rounded border border-lab-line bg-[#091315] p-4">
+              <div className="equation mb-3 rounded px-3 py-2 text-sm text-lab-cyan">{item.formula}</div>
+              <h4 className="text-base font-semibold text-white">{item.title}</h4>
+              <FormulaGuideRow label={guide.labels.purpose} text={item.purpose} />
+              <FormulaGuideRow label={guide.labels.when} text={item.when} />
+              <FormulaGuideRow label={guide.labels.where} text={item.where} />
+              <FormulaGuideRow label={guide.labels.units} text={item.units} />
+              <FormulaGuideRow label={guide.labels.decision} text={item.decision} />
+              <FormulaGuideRow label={guide.labels.watch} text={item.watch} warning />
+              <div className="mt-3 rounded border border-lab-cyan/40 bg-lab-cyan/10 p-3 text-sm text-lab-cyan">
+                <span className="font-semibold">{guide.labels.current}: </span>
+                {currentValues[index]}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function buildFormulaGuideCurrentValues(lang: Lang, inputs: HologramInputs, result: HologramResults) {
+  const diffraction =
+    result.diffractionAngleDeg === null
+      ? {
+          ru: `mλ/d = ${formatNumber(result.diffractionRatio)}; угол невозможен`,
+          en: `mλ/d = ${formatNumber(result.diffractionRatio)}; angle is impossible`,
+          uz: `mλ/d = ${formatNumber(result.diffractionRatio)}; burchak mumkin emas`
+        }[lang]
+      : `α = ${formatNumber(result.diffractionAngleDeg)}°; mλ/d = ${formatNumber(result.diffractionRatio)}`;
+
+  const interference = result.filmSuitable
+    ? {
+        ru: "Оба луча дают записываемую интерференционную картину.",
+        en: "Both beams create a recordable interference pattern.",
+        uz: "Ikkala nur yoziladigan interferensiya kartinasini hosil qiladi."
+      }[lang]
+    : {
+        ru: "Оба луча нужны, но разрешения плёнки всё ещё недостаточно.",
+        en: "Both beams are needed, but film resolution is still not enough.",
+        uz: "Ikkala nur kerak, lekin plyonka aniqligi hali yetarli emas."
+      }[lang];
+
+  const reconstruction = {
+    ru: `Используйте λ ≈ ${formatNumber(inputs.wavelengthNm)} nm и угол опорного луча ≈ ${formatNumber(inputs.angleDeg)}°`,
+    en: `Use λ ≈ ${formatNumber(inputs.wavelengthNm)} nm and reference angle ≈ ${formatNumber(inputs.angleDeg)}°`,
+    uz: `λ ≈ ${formatNumber(inputs.wavelengthNm)} nm va tayanch nur burchagi ≈ ${formatNumber(inputs.angleDeg)}° bo'lsin`
+  }[lang];
+
+  return [
+    `d = ${formatNumber(result.dNm)} nm = ${formatNumber(result.dMm, 6)} mm`,
+    `N = ${formatNumber(result.requiredResolutionLinesPerMm)} lines/mm; film = ${formatNumber(inputs.filmResolutionLinesPerMm)} lines/mm`,
+    `Lc = ${formatNumber(result.coherenceLengthMm)} mm = ${formatNumber(result.coherenceLengthCm)} cm`,
+    diffraction,
+    `< ${formatNumber(result.maxVibrationNm)} nm = ${formatNumber(result.maxVibrationUm)} µm`,
+    interference,
+    reconstruction
+  ];
+}
+
+function FormulaGuideRow({ label, text, warning }: { label: string; text: string; warning?: boolean }) {
+  return (
+    <p className="mt-3 text-sm leading-6 text-slate-300">
+      <span className={warning ? "font-semibold text-lab-amber" : "font-semibold text-slate-100"}>{label}: </span>
+      {text}
+    </p>
   );
 }
 
