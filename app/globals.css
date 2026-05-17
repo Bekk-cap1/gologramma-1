@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  background: #081012;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: #081012;
+  color: #eff9f8;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.scientific-grid {
+  background-color: #081012;
+  background-image:
+    linear-gradient(rgba(78, 121, 128, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78, 121, 128, 0.12) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.section-band {
+  border-top: 1px solid rgba(119, 176, 183, 0.18);
+}
+
+.equation {
+  border: 1px solid rgba(112, 191, 202, 0.28);
+  background: rgba(9, 20, 22, 0.82);
+  font-family: "Courier New", Courier, monospace;
+}
+
+.wave-field {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 91, 91, 0.12), transparent 40%),
+    linear-gradient(270deg, rgba(66, 242, 180, 0.12), transparent 40%),
+    #0d1719;
+}
+
+.wave-field::before,
+.wave-field::after {
+  position: absolute;
+  inset: 18px;
+  content: "";
+  border: 1px solid transparent;
+  opacity: 0.85;
+  mask-image: repeating-linear-gradient(
+    90deg,
+    #000 0 2px,
+    transparent 2px 20px
+  );
+}
+
+.wave-field::before {
+  border-top-color: rgba(255, 91, 91, 0.9);
+  border-bottom-color: rgba(255, 91, 91, 0.24);
+  animation: wave-slide 2.6s linear infinite;
+}
+
+.wave-field::after {
+  border-left-color: rgba(66, 242, 180, 0.9);
+  border-right-color: rgba(66, 242, 180, 0.24);
+  animation: wave-slide 2.1s linear infinite reverse;
+}
+
+.hologram-noise {
+  background-image:
+    repeating-linear-gradient(60deg, rgba(255,255,255,0.2) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(120deg, rgba(53,215,255,0.18) 0 1px, transparent 1px 11px);
+}
+
+@keyframes wave-slide {
+  from {
+    transform: translateX(-24px);
+  }
+  to {
+    transform: translateX(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .wave-field::before,
+  .wave-field::after {
+    animation: none;
+  }
+}
