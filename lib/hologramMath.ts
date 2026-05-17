@@ -121,7 +121,7 @@ export function formatNumber(value: number | null, digits = 3): string {
 export function buildCalculationText(input: HologramInputs, result: HologramResults): string {
   const halfAngle = input.angleDeg / 2;
   const alpha =
-    result.diffractionAngleDeg === null ? "impossible because |mλ / d| > 1" : `${formatNumber(result.diffractionAngleDeg)} deg`;
+    result.diffractionAngleDeg === null ? "impossible because |m lambda / d| > 1" : `${formatNumber(result.diffractionAngleDeg)} deg`;
 
   return [
     "Transmission Hologram Lab",

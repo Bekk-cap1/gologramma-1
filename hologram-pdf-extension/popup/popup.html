@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hologram PDF</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="topbar">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Hologram PDF</h1>
+          <p>Экспорт расчётов для диссертации</p>
+        </div>
+      </header>
+
+      <section id="status" class="status status--idle">Проверка подключения...</section>
+
+      <section class="panel">
+        <h2>Текущие параметры</h2>
+        <dl class="metrics">
+          <div><dt>λ</dt><dd id="metric-lambda">-</dd></div>
+          <div><dt>θ</dt><dd id="metric-theta">-</dd></div>
+          <div><dt>Δλ</dt><dd id="metric-delta">-</dd></div>
+          <div><dt>d</dt><dd id="metric-d">-</dd></div>
+          <div><dt>N</dt><dd id="metric-n">-</dd></div>
+          <div><dt>Lc</dt><dd id="metric-lc">-</dd></div>
+          <div><dt>α</dt><dd id="metric-alpha">-</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <h2>Настройки PDF</h2>
+        <div class="field">
+          <label for="author">Автор</label>
+          <input id="author" type="text" placeholder="Ф.И.О." />
+        </div>
+        <div class="field">
+          <label for="work-title">Название работы</label>
+          <input id="work-title" type="text" placeholder="Диссертация / раздел" />
+        </div>
+        <div class="field">
+          <label for="report-date">Дата</label>
+          <input id="report-date" type="date" />
+        </div>
+
+        <div class="checks" aria-label="Разделы отчёта">
+          <label><input type="checkbox" data-option="input" checked /> Входные параметры</label>
+          <label><input type="checkbox" data-option="formulas" checked /> Формулы</label>
+          <label><input type="checkbox" data-option="steps" checked /> Пошаговый расчёт</label>
+          <label><input type="checkbox" data-option="recordingScheme" checked /> Оптическая схема записи</label>
+          <label><input type="checkbox" data-option="reconstructionScheme" checked /> Схема восстановления</label>
+          <label><input type="checkbox" data-option="results" checked /> Таблица результатов</label>
+          <label><input type="checkbox" data-option="theory" /> Теория</label>
+          <label><input type="checkbox" data-option="comparison" /> Почему не проектор</label>
+        </div>
+      </section>
+
+      <button id="download" class="download" type="button" disabled>Скачать PDF</button>
+      <p id="message" class="message" role="status"></p>
+    </main>
+
+    <script src="../lib/jspdf.umd.min.js"></script>
+    <script src="../templates/report-template.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

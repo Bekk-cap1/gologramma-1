@@ -8,19 +8,29 @@ import {
   Download,
   FileText,
   Globe2,
+  Eye,
   Orbit,
   Printer,
   Radio,
   ScanLine,
+  Table2,
   TriangleRight,
   Waves
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { buildCalculationText, calculateHologram, defaultInputs, formatNumber, type HologramInputs } from "@/lib/hologramMath";
 import { copy, languages, type ComponentLabels, type Lang } from "@/lib/i18n";
 import { downloadDeviceJson, downloadFringePattern, printCalculationReport } from "@/lib/exporters";
+import OpticalTableBuilder from "./OpticalTableBuilder";
+import ReconstructionSimulator from "./ReconstructionSimulator";
 import type { SceneMode } from "./HologramScene";
+
+declare global {
+  interface Window {
+    __HOLOGRAM_DATA__?: unknown;
+  }
+}
 
 const HologramScene = dynamic(() => import("./HologramScene"), {
   ssr: false,
@@ -35,6 +45,8 @@ const sections = [
   { id: "reconstruction", key: "reconstruction" },
   { id: "fragment", key: "fragment" },
   { id: "visualization", key: "visualization" },
+  { id: "optical-table", key: "opticalTable" },
+  { id: "restore-simulator", key: "restoreLab" },
   { id: "device", key: "device" }
 ] as const;
 
@@ -48,6 +60,46 @@ export default function LabApp() {
   const t = copy[lang];
   const result = useMemo(() => calculateHologram(inputs), [inputs]);
   const calculationText = useMemo(() => buildCalculationText(inputs, result), [inputs, result]);
+  const hologramExportData = useMemo(
+    () => ({
+      project: "Transmission Hologram Lab",
+      version: "1.0.0",
+      language: lang,
+      generatedAt: "",
+      input: {
+        lambda: inputs.wavelengthNm,
+        theta: inputs.angleDeg,
+        deltaLambda: inputs.spectralLinewidthNm,
+        diffractionOrder: inputs.diffractionOrder,
+        filmResolution: inputs.filmResolutionLinesPerMm,
+        filmSize: inputs.filmSizeMm,
+        objectDistance: inputs.objectDistanceCm
+      },
+      results: {
+        d: result.dNm,
+        dMm: result.dMm,
+        linesPerMm: result.requiredResolutionLinesPerMm,
+        LcNm: result.coherenceLengthNm,
+        LcMm: result.coherenceLengthMm,
+        LcCm: result.coherenceLengthCm,
+        diffAngle: result.diffractionAngleDeg,
+        maxVibrationNm: result.maxVibrationNm,
+        filmSuitable: result.filmSuitable,
+        warnings: result.warnings
+      },
+      steps: calculationText.split("\n"),
+      reportText: calculationText
+    }),
+    [calculationText, inputs, lang, result]
+  );
+  const hologramExportJson = useMemo(
+    () => JSON.stringify(hologramExportData).replace(/</g, "\\u003c"),
+    [hologramExportData]
+  );
+
+  useEffect(() => {
+    window.__HOLOGRAM_DATA__ = hologramExportData;
+  }, [hologramExportData]);
 
   const updateInput = (key: keyof HologramInputs, value: number) => {
     setInputs((current) => ({ ...current, [key]: value }));
@@ -61,6 +113,12 @@ export default function LabApp() {
 
   return (
     <main className="scientific-grid min-h-screen text-slate-100">
+      <script
+        id="hologram-export-data"
+        type="application/json"
+        data-hologram-export
+        dangerouslySetInnerHTML={{ __html: hologramExportJson }}
+      />
       <header className="sticky top-0 z-40 border-b border-lab-line bg-[#081012]/94 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:px-6">
           <div className="flex items-center justify-between gap-4">
@@ -320,6 +378,14 @@ export default function LabApp() {
             flow={t.visualization.flow}
           />
         </div>
+      </Section>
+
+      <Section id="optical-table" title={t.nav.opticalTable} icon={<Table2 size={22} aria-hidden />}>
+        <OpticalTableBuilder />
+      </Section>
+
+      <Section id="restore-simulator" title={t.nav.restoreLab} icon={<Eye size={22} aria-hidden />}>
+        <ReconstructionSimulator recordedAngleDeg={inputs.angleDeg} recordedWavelengthNm={inputs.wavelengthNm} />
       </Section>
 
       <Section id="device" title={t.device.title} icon={<Download size={22} aria-hidden />}>

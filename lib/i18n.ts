@@ -27,6 +27,8 @@ export const copy = {
       reconstruction: "Восстановление",
       fragment: "Фрагмент",
       visualization: "3D",
+      opticalTable: "Оптический стол",
+      restoreLab: "Восстановление 3D",
       device: "Устройство"
     },
     hero: {
@@ -229,6 +231,8 @@ export const copy = {
       reconstruction: "Reconstruction",
       fragment: "Fragment",
       visualization: "3D",
+      opticalTable: "Optical Table",
+      restoreLab: "Hologram Restore",
       device: "Device"
     },
     hero: {
@@ -431,6 +435,8 @@ export const copy = {
       reconstruction: "Tiklash",
       fragment: "Fragment",
       visualization: "3D",
+      opticalTable: "Optik stol",
+      restoreLab: "3D tiklash",
       device: "Qurilma"
     },
     hero: {
